@@ -1,22 +1,18 @@
 {
   "compilerOptions": {
-    "target": "ES2021",                        
-    "module": "CommonJS",                      
-    "rootDir": "src",                          
-    "outDir": "dist",                          
-    "strict": true,                            
-    "esModuleInterop": true,                   
-    "skipLibCheck": true,                      
-    "forceConsistentCasingInFileNames": true,  
-    "resolveJsonModule": true,                 
-    "moduleResolution": "node",                
-    "sourceMap": true,                         
-    "noImplicitAny": false,                    
-    "experimentalDecorators": true,            
-    "emitDecoratorMetadata": true,             
-    "allowSyntheticDefaultImports": true,      
-    "isolatedModules": true                    
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "module": "ESNext",
+    "moduleResolution": "Node",
+    "target": "ESNext",
+    "lib": ["esnext"],
+    "types": ["node"],
+    "sourceMap": true,
+    "strict": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true
   },
-  "include": ["src/**/*.ts"],
+  "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
 }
