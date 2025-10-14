@@ -1,10 +1,12 @@
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import express, { type Application } from "express";
+import morganMiddleware from "./logger/morgan.logger";
 
 const app: Application = express();
 
 // Middlewares
+app.use(morganMiddleware);
 app.use(express.json({ limit: "16kb" }));
 app.use(express.urlencoded({ extended: true, limit: "16kb" }));
 app.use(
