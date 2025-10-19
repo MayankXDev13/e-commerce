@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import logger from "../logger/winston.logger";
 import { ApiError } from "../utils/ApiError";
-import { removeUnusedMulterImageFilesOnError } from "../utils/helpers";
+
 
 /**
  * @description Global error handler middleware for Express.
@@ -28,8 +28,7 @@ const errorHandler = (
   // Log the error
   logger.error(error.message);
 
-  // Remove any uploaded files if the request failed
-  removeUnusedMulterImageFilesOnError(req);
+
 
   // Prepare response payload
   const responsePayload: Record<string, any> = {
