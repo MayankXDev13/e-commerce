@@ -199,18 +199,21 @@ export const refreshAccessToken = asyncHandler(
         throw new ApiError(401, "Refresh token is expired or used");
       }
 
+      const { access_token, refresh_token: newRefreshToken } =
+        await generateAccessAndRefreshTokens(user.id);
+
+        await db
+          .update(userTable)
+          .set({ refreshToken: newRefreshToken,
+            updatedAt: new Date()
+           })
+          .where(eq(userTable.id, user.id));
+
       const options = {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
       };
 
-      const { access_token, refresh_token: newRefreshToken } =
-        await generateAccessAndRefreshTokens(user.id);
-
-      await db
-        .update(userTable)
-        .set({ refreshToken: newRefreshToken })
-        .where(eq(userTable.id, user.id));
 
       return res
         .status(200)
@@ -251,8 +254,12 @@ export const assigneRole = asyncHandler(async (req: Request, res: Response) => {
     .json(new ApiResponse(200, {}, "Role changed for the user"));
 });
 
-export const getCurrentUser = asyncHandler(async (req: Request, res: Response) => {
-  return res
-    .status(200)
-    .json(new ApiResponse(200, req.user, "Current user fetched successfully"));
-});
+export const getCurrentUser = asyncHandler(
+  async (req: Request, res: Response) => {
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(200, req.user, "Current user fetched successfully")
+      );
+  }
+);

@@ -20,11 +20,13 @@ app.use(cookieParser());
 import healthcheckRouter from "./routes/healthcheck.routes";
 import userRouter from "./routes/user.routes";
 import categoryRouter from "./routes/category.routes";
+import productRouter from "./routes/product.routes"
 import { errorHandler } from "./middlewares/error.middlewares";
 
 app.use("/api/v1/ecommerce/healthcheck", healthcheckRouter);
 app.use("/api/v1/ecommerce/users", userRouter);
 app.use("/api/v1/ecommerce/categories", categoryRouter);
+app.use("/api/v1/ecommerce/products", productRouter);
 
 app.use(errorHandler);
 

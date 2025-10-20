@@ -26,7 +26,8 @@ const errorHandler = (
   }
 
   // Log the error
-  logger.error(error.message);
+logger.error("Error message:", error.message, "Errors:", Array.isArray(error.errors) ? error.errors : []);
+
 
 
 
