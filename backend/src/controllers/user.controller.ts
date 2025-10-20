@@ -172,57 +172,87 @@ export const logoutUser = asyncHandler(async (req: Request, res: Response) => {
     .json(new ApiResponse(200, {}, "User logged out successfully"));
 });
 
-const refreshAccessToken = asyncHandler(async (req: Request, res: Response) => {
-  const incomingRefreshToken =
-    req.cookies.refreshToken || req.body.refreshToken;
+export const refreshAccessToken = asyncHandler(
+  async (req: Request, res: Response) => {
+    const incomingRefreshToken =
+      req.cookies.refreshToken || req.body.refreshToken;
 
-  if (!incomingRefreshToken) {
-    throw new ApiError(401, "Unauthorized request");
-  }
-  try {
-    const decodedToken = jwt.verify(
-      incomingRefreshToken,
-      process.env.REFRESH_TOKEN_SECRET as string
-    ) as { id: string };
-
-    const [user] = await db
-      .select()
-      .from(userTable)
-      .where(eq(userTable.id, decodedToken.id));
-
-    if (!user) {
-      throw new ApiError(401, "Invalid refresh token");
+    if (!incomingRefreshToken) {
+      throw new ApiError(401, "Unauthorized request");
     }
+    try {
+      const decodedToken = jwt.verify(
+        incomingRefreshToken,
+        process.env.REFRESH_TOKEN_SECRET as string
+      ) as { id: string };
 
-    if (incomingRefreshToken !== user?.refreshToken) {
-      throw new ApiError(401, "Refresh token is expired or used");
+      const [user] = await db
+        .select()
+        .from(userTable)
+        .where(eq(userTable.id, decodedToken.id));
+
+      if (!user) {
+        throw new ApiError(401, "Invalid refresh token");
+      }
+
+      if (incomingRefreshToken !== user?.refreshToken) {
+        throw new ApiError(401, "Refresh token is expired or used");
+      }
+
+      const options = {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+      };
+
+      const { access_token, refresh_token: newRefreshToken } =
+        await generateAccessAndRefreshTokens(user.id);
+
+      await db
+        .update(userTable)
+        .set({ refreshToken: newRefreshToken })
+        .where(eq(userTable.id, user.id));
+
+      return res
+        .status(200)
+        .cookie("accessToken", access_token, options)
+        .cookie("refreshToken", newRefreshToken, options)
+        .json(
+          new ApiResponse(
+            200,
+            { access_token, refreshToken: newRefreshToken },
+            "Access token refreshed"
+          )
+        );
+    } catch (err: any) {
+      throw new ApiError(401, err?.message || "Invalid refresh token");
     }
-
-    const options = {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-    };
-
-    const { access_token, refresh_token: newRefreshToken } =
-      await generateAccessAndRefreshTokens(user.id);
-
-    await db
-      .update(userTable)
-      .set({ refreshToken: newRefreshToken })
-      .where(eq(userTable.id, user.id));
-
-    return res
-      .status(200)
-      .cookie("accessToken", access_token, options)
-      .cookie("refreshToken", newRefreshToken, options)
-      .json(
-        new ApiResponse(
-          200,
-          { access_token, refreshToken: newRefreshToken },
-          "Access token refreshed"
-        )
-      );
-  } catch (err: any) {
-    throw new ApiError(401, err?.message || "Invalid refresh token");
   }
+);
+
+export const assigneRole = asyncHandler(async (req: Request, res: Response) => {
+  const { userId } = req.params;
+  const { role } = req.body;
+
+  if (!role) throw new ApiError(400, "Role is required");
+  const user = await db
+    .select()
+    .from(userTable)
+    .where(eq(userTable.id, userId));
+
+  if (!user) throw new ApiError(404, "User does not exist");
+
+  await db
+    .update(userTable)
+    .set({ userRole: role })
+    .where(eq(userTable.id, userId));
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, {}, "Role changed for the user"));
+});
+
+export const getCurrentUser = asyncHandler(async (req: Request, res: Response) => {
+  return res
+    .status(200)
+    .json(new ApiResponse(200, req.user, "Current user fetched successfully"));
 });

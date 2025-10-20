@@ -1,10 +1,23 @@
 import { Router } from "express";
-import { loginUser, registerUser } from "../controllers/user.controller";
+import {
+  assigneRole,
+  getCurrentUser,
+  loginUser,
+  logoutUser,
+  refreshAccessToken,
+  registerUser,
+} from "../controllers/user.controller";
+import { verifyJWT, verifyPermission } from "../middlewares/auth.middlewares";
 
-const router: Router = Router()
+const router: Router = Router();
 
 // Unsecured route
-router.route("/register").post(registerUser)
-router.route("/login").post(loginUser)
+router.route("/register").post(registerUser);
+router.route("/login").post(loginUser);
+router.route("/logout").post(logoutUser);
 
-export default router
+router.route("/refresh").post(verifyJWT, refreshAccessToken);
+router.route("/assign-role/:userId").post(verifyJWT, assigneRole);
+router.route("/get-current-user").get(verifyJWT, getCurrentUser);
+
+export default router;
