@@ -7,6 +7,7 @@ import { ApiError } from "../utils/ApiError";
 import { ApiResponse } from "../utils/ApiResponse";
 import { Request, Response } from "express";
 import bcrypt from "bcryptjs";
+import { eq } from "drizzle-orm";
 
 const generateAccessAndRefreshTokens = async (userId: any) => {
   try {
@@ -148,4 +149,80 @@ export const loginUser = asyncHandler(async (req: Request, res: Response) => {
         "User logged in successfully"
       )
     );
+});
+
+export const logoutUser = asyncHandler(async (req: Request, res: Response) => {
+  await db.query.userTable.findFirst({
+    where: (user, { eq }) => eq(user.id, user.id),
+  });
+
+  await db.update(userTable).set({
+    refreshToken: "",
+  });
+
+  const options = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+  };
+
+  return res
+    .status(200)
+    .cookie("accessToken", options)
+    .cookie("refreshToken", options)
+    .json(new ApiResponse(200, {}, "User logged out successfully"));
+});
+
+const refreshAccessToken = asyncHandler(async (req: Request, res: Response) => {
+  const incomingRefreshToken =
+    req.cookies.refreshToken || req.body.refreshToken;
+
+  if (!incomingRefreshToken) {
+    throw new ApiError(401, "Unauthorized request");
+  }
+  try {
+    const decodedToken = jwt.verify(
+      incomingRefreshToken,
+      process.env.REFRESH_TOKEN_SECRET as string
+    );
+
+    const [user] = await db
+      .select()
+      .from(userTable)
+      .where(eq(userTable.id, decodedToken.id));
+
+    if (!user) {
+      throw new ApiError(401, "Invalid refresh token");
+    }
+
+    if (incomingRefreshToken !== user?.refreshToken) {
+      throw new ApiError(401, "Refresh token is expired or used");
+    }
+
+    const options = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+    };
+
+    const { access_token, refresh_token: newRefreshToken } =
+      await generateAccessAndRefreshTokens(user.id);
+
+    await db
+      .update(userTable)
+      .set({ refreshToken: newRefreshToken })
+      .where(eq(userTable.id, user.id));
+
+    return res
+      .status(200)
+      .cookie("accessToken", access_token, options)
+      .cookie("refreshToken", newRefreshToken, options)
+      .json(
+        new ApiResponse(
+          200,
+          { access_token, refreshToken: newRefreshToken },
+          "Access token refreshed"
+        )
+      );
+  } catch (err: any) {
+    throw new ApiError(401, error?.message || "Invalid refresh token");
+  }
 });
