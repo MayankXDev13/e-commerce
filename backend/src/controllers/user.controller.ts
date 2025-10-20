@@ -1,5 +1,4 @@
-import crypto from "crypto";
-import jwt from "jsonwebtoken";
+import jwt, { Secret } from "jsonwebtoken";
 import { userTable } from "../db/schema";
 import { db } from "../db/db";
 import { asyncHandler } from "../utils/asyncHandler";
@@ -8,45 +7,38 @@ import { ApiResponse } from "../utils/ApiResponse";
 import { Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
+import { TOKEN_EXPIRY, TOKEN_SECRETS } from "../constants";
 
-const generateAccessAndRefreshTokens = async (userId: any) => {
+const generateAccessAndRefreshTokens = async (userId: string) => {
   try {
     const user = await db.query.userTable.findFirst({
       where: (user, { eq }) => eq(user.id, userId),
     });
 
+    if (!user) throw new ApiError(404, "User not found");
+
     const access_token = jwt.sign(
-      {
-        id: user?.id,
-        email: user?.email,
-        role: user?.userRole,
-      },
-      process.env.ACCESS_TOKEN_SECRET as string,
-      {
-        expiresIn: parseInt(process.env.ACCESS_TOKEN_EXPIRY || "3600"),
-      }
+      { id: user.id, email: user.email, role: user.userRole },
+      TOKEN_SECRETS.ACCESS_TOKEN,
+      { expiresIn: TOKEN_EXPIRY.ACCESS_TOKEN }
     );
 
     const refresh_token = jwt.sign(
-      {
-        id: user?.id,
-      },
-      process.env.REFRESH_TOKEN_SECRET as string,
-      {
-        expiresIn: parseInt(process.env.REFRESH_TOKEN_EXPIRY || "3600"),
-      }
+      { id: user.id },
+      TOKEN_SECRETS.REFRESH_TOKEN,
+      { expiresIn: TOKEN_EXPIRY.REFRESH_TOKEN }
     );
 
-    await db.update(userTable).set({
-      refreshToken: refresh_token,
-    });
+    await db
+      .update(userTable)
+      .set({ refreshToken: refresh_token })
+      .where(eq(userTable.id, userId));
 
     return { access_token, refresh_token };
-  } catch (error: any) {
-    throw new ApiError(
-      500,
-      "Something went wrong while genreating the access token"
-    );
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    console.error("Token generation error:", error);
+    throw new ApiError(500, "Error generating tokens");
   }
 };
 
@@ -152,13 +144,21 @@ export const loginUser = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const logoutUser = asyncHandler(async (req: Request, res: Response) => {
-  await db.query.userTable.findFirst({
-    where: (user, { eq }) => eq(user.id, user.id),
-  });
+  const refreshToken = req.cookies.refreshToken;
 
-  await db.update(userTable).set({
-    refreshToken: "",
-  });
+  if (!refreshToken) {
+    throw new ApiError(401, "Unauthorized request");
+  }
+
+  const decoded = jwt.verify(
+    refreshToken,
+    process.env.REFRESH_TOKEN_SECRET as string
+  ) as { id: string };
+
+  await db
+    .update(userTable)
+    .set({ refreshToken: "" })
+    .where(eq(userTable.id, decoded.id));
 
   const options = {
     httpOnly: true,
@@ -167,8 +167,8 @@ export const logoutUser = asyncHandler(async (req: Request, res: Response) => {
 
   return res
     .status(200)
-    .cookie("accessToken", options)
-    .cookie("refreshToken", options)
+    .clearCookie("accessToken", options)
+    .clearCookie("refreshToken", options)
     .json(new ApiResponse(200, {}, "User logged out successfully"));
 });
 
@@ -183,7 +183,7 @@ const refreshAccessToken = asyncHandler(async (req: Request, res: Response) => {
     const decodedToken = jwt.verify(
       incomingRefreshToken,
       process.env.REFRESH_TOKEN_SECRET as string
-    );
+    ) as { id: string };
 
     const [user] = await db
       .select()
@@ -223,6 +223,6 @@ const refreshAccessToken = asyncHandler(async (req: Request, res: Response) => {
         )
       );
   } catch (err: any) {
-    throw new ApiError(401, error?.message || "Invalid refresh token");
+    throw new ApiError(401, err?.message || "Invalid refresh token");
   }
 });
