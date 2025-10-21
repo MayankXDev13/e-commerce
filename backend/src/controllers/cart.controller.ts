@@ -164,7 +164,7 @@ export const addItemOrUpdateItemQuantity = asyncHandler(
     const { productId } = req.params;
     const { quantity = 1 } = req.body;
 
-    // Check if product exists
+    // Validate product and stock
     const product = await db
       .select()
       .from(productTable)
@@ -175,7 +175,6 @@ export const addItemOrUpdateItemQuantity = asyncHandler(
       throw new ApiError(404, "Product does not exist");
     }
 
-    // Validate stock
     if (quantity > product[0].stock) {
       throw new ApiError(
         400,
@@ -185,55 +184,63 @@ export const addItemOrUpdateItemQuantity = asyncHandler(
       );
     }
 
-    // Fetch user's cart
-    const userCart = await db
-      .select()
-      .from(cartTable)
-      .where(eq(cartTable.owner, req.user?.id!))
-      .limit(1);
-
-    if (!userCart.length) {
-      throw new ApiError(404, "Cart not found");
-    }
-
-    const cart = userCart[0];
-
-    // Check if product already exists in cart
-    const existingItemIndex = cart.items.findIndex(
-      (item) => item.productId === productId
-    );
-
-    let updatedItems = [...cart.items];
-    let shouldRemoveCoupon = false;
-
-    if (existingItemIndex !== -1) {
-      // Product exists - update quantity
-      updatedItems[existingItemIndex] = {
-        ...updatedItems[existingItemIndex],
-        quantity,
-      };
-      // Remove coupon when updating existing item quantity
-      shouldRemoveCoupon = cart.coupon !== null;
-    } else {
-      // Product doesn't exist - add new item
-      updatedItems.push({
-        id: crypto.randomUUID(), // Generate unique ID for the item
-        productId,
-        quantity,
-      });
-    }
-
-    // Update cart
-    await db
-      .update(cartTable)
-      .set({
-        items: updatedItems,
-        coupon: shouldRemoveCoupon ? null : cart.coupon,
-        updatedAt: new Date(),
+    // Get or create cart using upsert
+    const [cart] = await db
+      .insert(cartTable)
+      .values({
+        owner: req.user?.id!,
+        items: [
+          {
+            id: crypto.randomUUID(),
+            productId,
+            quantity,
+          },
+        ],
+        coupon: null,
       })
-      .where(eq(cartTable.owner, req.user?.id!));
+      .onConflictDoUpdate({
+        target: cartTable.owner, // Conflict on unique owner field
+        set: {
+          items: sql`
+          CASE 
+            WHEN EXISTS (
+              SELECT 1 
+              FROM jsonb_array_elements(${cartTable.items}) AS item 
+              WHERE item->>'productId' = ${productId}
+            )
+            THEN (
+              SELECT jsonb_agg(
+                CASE 
+                  WHEN item->>'productId' = ${productId}
+                  THEN jsonb_set(item, '{quantity}', ${quantity}::text::jsonb)
+                  ELSE item
+                END
+              )
+              FROM jsonb_array_elements(${cartTable.items}) AS item
+            )
+            ELSE ${cartTable.items} || ${JSON.stringify({
+            id: crypto.randomUUID(),
+            productId,
+            quantity,
+          })}::jsonb
+          END
+        `,
+          coupon: sql`
+          CASE 
+            WHEN EXISTS (
+              SELECT 1 
+              FROM jsonb_array_elements(${cartTable.items}) AS item 
+              WHERE item->>'productId' = ${productId}
+            )
+            THEN NULL
+            ELSE ${cartTable.coupon}
+          END
+        `,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
 
-    // Get structured cart with product details
     const newCart = await getCart(req.user?.id!);
 
     return res
