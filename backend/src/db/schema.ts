@@ -1,16 +1,17 @@
 import { relations } from "drizzle-orm";
 import {
   boolean,
+  index,
   jsonb,
   pgEnum,
   pgTable,
   real,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
-
 
 export const roleEnum = pgEnum("role", ["ADMIN", "USER"]);
 export const orderStatusEnum = pgEnum("order_status", [
@@ -29,87 +30,117 @@ export const paymentProviderEnum = pgEnum("payment_provider", [
 ]);
 export const couponTypeEnum = pgEnum("coupon_type", ["FLAT", "PERCENTAGE"]);
 
-export const userTable = pgTable("user", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  email: varchar("email", { length: 256 }).notNull().unique(),
-  password: varchar("password", { length: 256 }).notNull(),
-  avatar: varchar("avatar", { length: 256 }),
-  userRole: roleEnum("user_role").notNull().default("USER"),
-  refreshToken: varchar("refresh_token", { length: 256 }),
-  forgotPasswordToken: varchar("forgot_password_token", { length: 256 }),
-  forgotPasswordExpiry: timestamp("forgot_password_expiry", {
-    withTimezone: true,
-  }),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-});
+export const userTable = pgTable(
+  "user",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    email: varchar("email", { length: 256 }).notNull(),
+    password: varchar("password", { length: 256 }).notNull(),
+    avatar: varchar("avatar", { length: 256 }),
+    userRole: roleEnum("user_role").notNull().default("USER"),
+    refreshToken: varchar("refresh_token", { length: 256 }),
+    forgotPasswordToken: varchar("forgot_password_token", { length: 256 }),
+    forgotPasswordExpiry: timestamp("forgot_password_expiry", {
+      withTimezone: true,
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [
+    uniqueIndex("email_idx_user").on(t.email),
+    index("user_role_idx_user").on(t.userRole),
+    index("id_idx_user").on(t.id),
+  ]
+);
 
-export const categoryTable = pgTable("category", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  name: varchar("name", { length: 256 }).notNull(),
-  owner: uuid("owner")
-    .references(() => userTable.id)
-    .notNull(), // One user → many categories
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-});
+export const categoryTable = pgTable(
+  "category",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: varchar("name", { length: 256 }).notNull(),
+    owner: uuid("owner")
+      .references(() => userTable.id)
+      .notNull(), // One user → many categories
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [
+    uniqueIndex("name_idx_category").on(t.name),
+    index("id_idx_category").on(t.id),
+    index("owner_idx_category").on(t.owner),
+  ]
+);
 
-export const productTable = pgTable("product", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  category: uuid("category")
-    .references(() => categoryTable.id)
-    .notNull(), // One category → many products
-  name: varchar("name", { length: 256 }).notNull(),
-  description: text("description").notNull(),
-  owner: uuid("owner")
-    .references(() => userTable.id)
-    .notNull(), // One user → many products
-  price: real("price").notNull(),
-  stock: real("stock").notNull(),
-  mainImageUrl: varchar("main_image_url", { length: 256 }),
-  mainImageLocalPath: varchar("main_image_local_path", {
-    length: 255,
-  }),
-  subImages: jsonb("sub_images")
-    .$type<{ id: string; url: string; localPath: string }[]>()
-    .notNull()
-    .default([]),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-});
+export const productTable = pgTable(
+  "product",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    category: uuid("category")
+      .references(() => categoryTable.id)
+      .notNull(), // One category → many products
+    name: varchar("name", { length: 256 }).notNull(),
+    description: text("description").notNull(),
+    owner: uuid("owner")
+      .references(() => userTable.id)
+      .notNull(), // One user → many products
+    price: real("price").notNull(),
+    stock: real("stock").notNull(),
+    mainImageUrl: varchar("main_image_url", { length: 256 }),
+    mainImageLocalPath: varchar("main_image_local_path", {
+      length: 255,
+    }),
+    subImages: jsonb("sub_images")
+      .$type<{ id: string; url: string; localPath: string }[]>()
+      .notNull()
+      .default([]),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [
+    index("id_idx_product").on(t.id),
+    index("category_idx_product").on(t.category),
+    index("owner_idx_product").on(t.owner),
+    index("name_idx_product").on(t.name),
+    index("description_idx_product").on(t.description),
+  ]
+);
 
-export const couponTable = pgTable("coupon", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  name: varchar("name", { length: 256 }).notNull(),
-  couponCode: varchar("coupon_code", { length: 256 }).notNull().unique(),
-  type: couponTypeEnum("type").default("FLAT").notNull(),
-  discountValue: real("discount_value").notNull(),
-  isActive: boolean("is_active").notNull().default(true),
-  minimumCartValue: real("minimum_cart_value").default(0),
-  startDate: timestamp("start_date", { withTimezone: true }).notNull(),
-  expiryDate: timestamp("expiry_date", { withTimezone: true }).notNull(),
-  owner: uuid("owner")
-    .references(() => userTable.id)
-    .notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-});
+export const couponTable = pgTable(
+  "coupon",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: varchar("name", { length: 256 }).notNull(),
+    couponCode: varchar("coupon_code", { length: 256 }).notNull(),
+    type: couponTypeEnum("type").default("FLAT").notNull(),
+    discountValue: real("discount_value").notNull(),
+    isActive: boolean("is_active").notNull().default(true),
+    minimumCartValue: real("minimum_cart_value").default(0),
+    startDate: timestamp("start_date", { withTimezone: true }).notNull(),
+    expiryDate: timestamp("expiry_date", { withTimezone: true }).notNull(),
+    owner: uuid("owner")
+      .references(() => userTable.id)
+      .notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [uniqueIndex("coupon_code_idx").on(t.couponCode)]
+);
 
 export const cartTable = pgTable("cart", {
   id: uuid("id").primaryKey().defaultRandom(),
