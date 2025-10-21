@@ -278,6 +278,7 @@ export const removeProductSubImage = asyncHandler(
     const removedSubImage = product.subImages?.find(
       (image) => image.id === subImageId
     );
+    removeLocalFile(removedSubImage?.localPath!);
 
     // Filter out the image
     const updatedSubImages = product.subImages.filter(
@@ -311,13 +312,11 @@ export const deleteProduct = asyncHandler(
       throw new ApiError(404, "Product does not exist");
     }
 
-    
     const imagePaths: string[] = [
-      product.mainImageLocalPath, 
-      ...product.subImages.map(img => img.localPath) 
-    ].filter((path): path is string => Boolean(path)); 
+      product.mainImageLocalPath,
+      ...product.subImages.map((img) => img.localPath),
+    ].filter((path): path is string => Boolean(path));
 
-    
     imagePaths.forEach((path) => {
       removeLocalFile(path);
     });
@@ -333,4 +332,3 @@ export const deleteProduct = asyncHandler(
       );
   }
 );
-
