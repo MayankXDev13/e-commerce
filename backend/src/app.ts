@@ -2,6 +2,7 @@ import cookieParser from "cookie-parser";
 import cors from "cors";
 import express, { type Application } from "express";
 import morganMiddleware from "./logger/morgan.logger";
+import { errorHandler } from "./middlewares/error.middlewares";
 
 const app: Application = express();
 
@@ -22,12 +23,14 @@ import healthcheckRouter from "./routes/healthcheck.routes";
 import userRouter from "./routes/user.routes";
 import categoryRouter from "./routes/category.routes";
 import productRouter from "./routes/product.routes";
-import { errorHandler } from "./middlewares/error.middlewares";
+import addressRouter from "./routes/address.routes";
+
 
 app.use("/api/v1/ecommerce/healthcheck", healthcheckRouter);
 app.use("/api/v1/ecommerce/users", userRouter);
 app.use("/api/v1/ecommerce/categories", categoryRouter);
 app.use("/api/v1/ecommerce/products", productRouter);
+app.use("/api/v1/ecommerce/addresses", addressRouter);
 
 app.use(errorHandler);
 

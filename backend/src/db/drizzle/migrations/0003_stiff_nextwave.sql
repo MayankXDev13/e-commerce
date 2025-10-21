@@ -1,0 +1,1 @@
+CREATE INDEX "id_idx_address" ON "address" USING btree ("id");

@@ -191,24 +191,28 @@ export const orderTable = pgTable("order", {
     .notNull(),
 });
 
-export const addressTable = pgTable("address", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  addressLine1: varchar("address_line_1", { length: 256 }).notNull(),
-  addressLine2: varchar("address_line_2", { length: 256 }),
-  city: varchar("city", { length: 256 }).notNull(),
-  country: varchar("country", { length: 256 }).notNull(),
-  state: varchar("state", { length: 256 }).notNull(),
-  pincode: varchar("pincode", { length: 256 }).notNull(),
-  owner: uuid("owner")
-    .references(() => userTable.id)
-    .notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-});
+export const addressTable = pgTable(
+  "address",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    addressLine1: varchar("address_line_1", { length: 256 }).notNull(),
+    addressLine2: varchar("address_line_2", { length: 256 }),
+    city: varchar("city", { length: 256 }).notNull(),
+    country: varchar("country", { length: 256 }).notNull(),
+    state: varchar("state", { length: 256 }).notNull(),
+    pincode: varchar("pincode", { length: 256 }).notNull(),
+    owner: uuid("owner")
+      .references(() => userTable.id)
+      .notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [index("id_idx_address").on(t.id)]
+);
 
 // Relations
 
