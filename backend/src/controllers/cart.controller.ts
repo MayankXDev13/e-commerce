@@ -108,54 +108,139 @@ export const getUserCart = asyncHandler(async (req: Request, res: Response) => {
     .json(new ApiResponse(200, cart, "Cart fetched successfully"));
 });
 
-export const removeItemFromCart = asyncHandler(async (req: Request, res: Response) => {
-  const { productId } = req.params;
+export const removeItemFromCart = asyncHandler(
+  async (req: Request, res: Response) => {
+    const { productId } = req.params;
 
-  // Check if product exists
-  const product = await db
-    .select()
-    .from(productTable)
-    .where(eq(productTable.id, productId))
-    .limit(1);
+    // Check if product exists
+    const product = await db
+      .select()
+      .from(productTable)
+      .where(eq(productTable.id, productId))
+      .limit(1);
 
-  if (!product.length) {
-    throw new ApiError(404, "Product does not exist");
-  }
+    if (!product.length) {
+      throw new ApiError(404, "Product does not exist");
+    }
 
-  // Remove item from cart using PostgreSQL JSONB filtering
-  await db
-    .update(cartTable)
-    .set({
-      items: sql`(
+    // Remove item from cart using PostgreSQL JSONB filtering
+    await db
+      .update(cartTable)
+      .set({
+        items: sql`(
         SELECT COALESCE(jsonb_agg(item), '[]'::jsonb)
         FROM jsonb_array_elements(${cartTable.items}) AS item
         WHERE item->>'productId' != ${productId}
       )`,
-      updatedAt: new Date(),
-    })
-    .where(eq(cartTable.owner, req.user?.id!));
-
-  let cart = await getCart(req.user?.id!);
-
-  // Check if coupon is still valid based on minimum cart value
-  if (cart.coupon && cart.cartTotal < (cart.coupon.minimumCartValue || 0)) {
-    // Remove coupon if cart total is below minimum
-    await db
-      .update(cartTable)
-      .set({
-        coupon: null,
         updatedAt: new Date(),
       })
       .where(eq(cartTable.owner, req.user?.id!));
 
-    // Fetch the latest cart after coupon removal
-    cart = await getCart(req.user?.id!);
-  }
+    let cart = await getCart(req.user?.id!);
 
-  return res
-    .status(200)
-    .json(new ApiResponse(200, cart, "Cart item removed successfully"));
-});
+    // Check if coupon is still valid based on minimum cart value
+    if (cart.coupon && cart.cartTotal < (cart.coupon.minimumCartValue || 0)) {
+      // Remove coupon if cart total is below minimum
+      await db
+        .update(cartTable)
+        .set({
+          coupon: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(cartTable.owner, req.user?.id!));
+
+      // Fetch the latest cart after coupon removal
+      cart = await getCart(req.user?.id!);
+    }
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, cart, "Cart item removed successfully"));
+  }
+);
+
+export const addItemOrUpdateItemQuantity = asyncHandler(
+  async (req: Request, res: Response) => {
+    const { productId } = req.params;
+    const { quantity = 1 } = req.body;
+
+    // Check if product exists
+    const product = await db
+      .select()
+      .from(productTable)
+      .where(eq(productTable.id, productId))
+      .limit(1);
+
+    if (!product.length) {
+      throw new ApiError(404, "Product does not exist");
+    }
+
+    // Validate stock
+    if (quantity > product[0].stock) {
+      throw new ApiError(
+        400,
+        product[0].stock > 0
+          ? `Only ${product[0].stock} products are remaining. But you are adding ${quantity}`
+          : "Product is out of stock"
+      );
+    }
+
+    // Fetch user's cart
+    const userCart = await db
+      .select()
+      .from(cartTable)
+      .where(eq(cartTable.owner, req.user?.id!))
+      .limit(1);
+
+    if (!userCart.length) {
+      throw new ApiError(404, "Cart not found");
+    }
+
+    const cart = userCart[0];
+
+    // Check if product already exists in cart
+    const existingItemIndex = cart.items.findIndex(
+      (item) => item.productId === productId
+    );
+
+    let updatedItems = [...cart.items];
+    let shouldRemoveCoupon = false;
+
+    if (existingItemIndex !== -1) {
+      // Product exists - update quantity
+      updatedItems[existingItemIndex] = {
+        ...updatedItems[existingItemIndex],
+        quantity,
+      };
+      // Remove coupon when updating existing item quantity
+      shouldRemoveCoupon = cart.coupon !== null;
+    } else {
+      // Product doesn't exist - add new item
+      updatedItems.push({
+        id: crypto.randomUUID(), // Generate unique ID for the item
+        productId,
+        quantity,
+      });
+    }
+
+    // Update cart
+    await db
+      .update(cartTable)
+      .set({
+        items: updatedItems,
+        coupon: shouldRemoveCoupon ? null : cart.coupon,
+        updatedAt: new Date(),
+      })
+      .where(eq(cartTable.owner, req.user?.id!));
+
+    // Get structured cart with product details
+    const newCart = await getCart(req.user?.id!);
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, newCart, "Item added successfully"));
+  }
+);
 
 export const clearCart = asyncHandler(async (req: Request, res: Response) => {
   await db

@@ -24,13 +24,14 @@ import userRouter from "./routes/user.routes";
 import categoryRouter from "./routes/category.routes";
 import productRouter from "./routes/product.routes";
 import addressRouter from "./routes/address.routes";
-
+import cartRouter from "./routes/cart.routes";
 
 app.use("/api/v1/ecommerce/healthcheck", healthcheckRouter);
 app.use("/api/v1/ecommerce/users", userRouter);
 app.use("/api/v1/ecommerce/categories", categoryRouter);
 app.use("/api/v1/ecommerce/products", productRouter);
 app.use("/api/v1/ecommerce/addresses", addressRouter);
+app.use("/api/v1/ecommerce/cart", cartRouter);
 
 app.use(errorHandler);
 
