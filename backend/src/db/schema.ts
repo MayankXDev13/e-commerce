@@ -1,4 +1,4 @@
-import { relations, sql } from "drizzle-orm";
+import { relations } from "drizzle-orm";
 import {
   boolean,
   jsonb,
@@ -11,7 +11,7 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 
-/** ENUMS **/
+
 export const roleEnum = pgEnum("role", ["ADMIN", "USER"]);
 export const orderStatusEnum = pgEnum("order_status", [
   "PENDING",
@@ -79,7 +79,7 @@ export const productTable = pgTable("product", {
     length: 255,
   }),
   subImages: jsonb("sub_images")
-    .$type<{ id: string, url: string; localPath: string,   }[]>()
+    .$type<{ id: string; url: string; localPath: string }[]>()
     .notNull()
     .default([]),
   createdAt: timestamp("created_at", { withTimezone: true })
@@ -93,7 +93,7 @@ export const productTable = pgTable("product", {
 export const couponTable = pgTable("coupon", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: varchar("name", { length: 256 }).notNull(),
-  couponCode: varchar("coupon_code", { length: 256 }).notNull(),
+  couponCode: varchar("coupon_code", { length: 256 }).notNull().unique(),
   type: couponTypeEnum("type").default("FLAT").notNull(),
   discountValue: real("discount_value").notNull(),
   isActive: boolean("is_active").notNull().default(true),
@@ -102,7 +102,7 @@ export const couponTable = pgTable("coupon", {
   expiryDate: timestamp("expiry_date", { withTimezone: true }).notNull(),
   owner: uuid("owner")
     .references(() => userTable.id)
-    .notNull(), // One user → many coupons
+    .notNull(),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
@@ -116,10 +116,13 @@ export const cartTable = pgTable("cart", {
   owner: uuid("owner")
     .references(() => userTable.id)
     .notNull()
-    .unique(), // One user → one cart
-  coupon: uuid("coupon_id").references(() => couponTable.id, {
-    onDelete: "set null",
-  }), // nullable
+    .unique(),
+
+  coupon: uuid("coupon_id").references(() => couponTable.id),
+  items: jsonb("items")
+    .$type<{ id: string; productId: string; quantity: number }[]>()
+    .notNull()
+    .default([]),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
@@ -128,24 +131,19 @@ export const cartTable = pgTable("cart", {
     .notNull(),
 });
 
-export const cartProductTable = pgTable("cart_product", {
-  cartId: uuid("cart_id")
-    .references(() => cartTable.id)
-    .notNull(),
-  productId: uuid("product_id")
-    .references(() => productTable.id)
-    .notNull(),
-  quantity: real("quantity").notNull(),
-});
-
 export const orderTable = pgTable("order", {
   id: uuid("id").primaryKey().defaultRandom(),
   orderPrice: real("order_price").notNull(),
   discountedOrderPrice: real("discounted_order_price").notNull(),
   customer: uuid("customer")
     .references(() => userTable.id)
-    .notNull(), // Many orders → one user
-  address: uuid("address_id")
+    .notNull(),
+  items: jsonb("items")
+    .$type<{ id: string; productId: string; quantity: number }[]>()
+    .notNull()
+    .default([]),
+  coupon: uuid("coupon_id").references(() => couponTable.id),
+  addressId: uuid("address_id")
     .references(() => addressTable.id)
     .notNull(),
   status: orderStatusEnum("status").notNull().default("PENDING"),
@@ -160,16 +158,6 @@ export const orderTable = pgTable("order", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
-});
-
-export const orderProductTable = pgTable("order_product", {
-  orderId: uuid("order_id")
-    .references(() => orderTable.id)
-    .notNull(),
-  productId: uuid("product_id")
-    .references(() => productTable.id)
-    .notNull(),
-  quantity: real("quantity").notNull(),
 });
 
 export const addressTable = pgTable("address", {
@@ -194,7 +182,7 @@ export const addressTable = pgTable("address", {
 // Relations
 
 export const userRelations = relations(userTable, ({ many, one }) => ({
-  categoties: many(categoryTable), // user has many categories
+  categories: many(categoryTable), // user has many categories
   products: many(productTable), // user has many products
   orders: many(orderTable), // user has many orders
   coupons: many(couponTable), // user has many coupons
@@ -225,7 +213,7 @@ export const productRelations = relations(productTable, ({ one, many }) => ({
   }),
 }));
 
-export const cartRelations = relations(cartTable, ({ one, many }) => ({
+export const cartRelations = relations(cartTable, ({ one }) => ({
   owner: one(userTable, {
     fields: [cartTable.owner],
     references: [userTable.id],
@@ -234,42 +222,19 @@ export const cartRelations = relations(cartTable, ({ one, many }) => ({
     fields: [cartTable.coupon],
     references: [couponTable.id],
   }),
-  products: many(cartProductTable), // join table
 }));
 
-export const orderRelations = relations(orderTable, ({ one, many }) => ({
+export const orderRelations = relations(orderTable, ({ one }) => ({
   customer: one(userTable, {
     fields: [orderTable.customer],
     references: [userTable.id],
   }),
   address: one(addressTable, {
-    fields: [orderTable.address],
+    fields: [orderTable.addressId],
     references: [addressTable.id],
   }),
-  products: many(orderProductTable), // join table
-}));
-
-export const cartProductRelations = relations(cartProductTable, ({ one }) => ({
-  cart: one(cartTable, {
-    fields: [cartProductTable.cartId],
-    references: [cartTable.id],
-  }),
-  product: one(productTable, {
-    fields: [cartProductTable.productId],
-    references: [productTable.id],
+  coupon: one(couponTable, {
+    fields: [orderTable.coupon],
+    references: [couponTable.id],
   }),
 }));
-
-export const orderProductRelations = relations(
-  orderProductTable,
-  ({ one }) => ({
-    order: one(orderTable, {
-      fields: [orderProductTable.orderId],
-      references: [orderTable.id],
-    }),
-    product: one(productTable, {
-      fields: [orderProductTable.productId],
-      references: [productTable.id],
-    }),
-  })
-);
