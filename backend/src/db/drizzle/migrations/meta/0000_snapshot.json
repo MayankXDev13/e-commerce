@@ -1,5 +1,5 @@
 {
-  "id": "86fc8a30-dff8-4562-bae5-827804a566c3",
+  "id": "cb21ac2e-302b-4bc4-9472-ff876082ce8d",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -618,17 +618,24 @@
           "primaryKey": false,
           "notNull": true
         },
-        "main_image": {
-          "name": "main_image",
+        "main_image_url": {
+          "name": "main_image_url",
           "type": "varchar(256)",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
+        },
+        "main_image_local_path": {
+          "name": "main_image_local_path",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
         },
         "sub_images": {
           "name": "sub_images",
-          "type": "varchar(256)[]",
+          "type": "jsonb",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true,
+          "default": "'[]'::jsonb"
         },
         "created_at": {
           "name": "created_at",

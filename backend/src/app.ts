@@ -16,11 +16,12 @@ app.use(
   })
 );
 app.use(cookieParser());
+app.use("/images", express.static("public/images"));
 
 import healthcheckRouter from "./routes/healthcheck.routes";
 import userRouter from "./routes/user.routes";
 import categoryRouter from "./routes/category.routes";
-import productRouter from "./routes/product.routes"
+import productRouter from "./routes/product.routes";
 import { errorHandler } from "./middlewares/error.middlewares";
 
 app.use("/api/v1/ecommerce/healthcheck", healthcheckRouter);

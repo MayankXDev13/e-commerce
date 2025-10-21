@@ -15,8 +15,9 @@ const router: Router = Router();
 router.route("/register").post(registerUser);
 router.route("/login").post(loginUser);
 router.route("/logout").post(logoutUser);
-
 router.route("/refresh").post(refreshAccessToken);
+
+
 router.route("/assign-role/:userId").post(verifyJWT, assigneRole);
 router.route("/get-current-user").get(verifyJWT, getCurrentUser);
 

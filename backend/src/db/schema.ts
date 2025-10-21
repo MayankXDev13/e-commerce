@@ -1,6 +1,7 @@
 import { relations, sql } from "drizzle-orm";
 import {
   boolean,
+  jsonb,
   pgEnum,
   pgTable,
   real,
@@ -73,8 +74,14 @@ export const productTable = pgTable("product", {
     .notNull(), // One user → many products
   price: real("price").notNull(),
   stock: real("stock").notNull(),
-  mainImage: varchar("main_image", { length: 256 }).notNull(),
-  subImages: varchar("sub_images", { length: 256 }).array(),
+  mainImageUrl: varchar("main_image_url", { length: 256 }),
+  mainImageLocalPath: varchar("main_image_local_path", {
+    length: 255,
+  }),
+  subImages: jsonb("sub_images")
+    .$type<{ id: string, url: string; localPath: string,   }[]>()
+    .notNull()
+    .default([]),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),

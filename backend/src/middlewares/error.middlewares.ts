@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import logger from "../logger/winston.logger";
 import { ApiError } from "../utils/ApiError";
+import { removeUnusedMulterImageFilesOnError } from "../utils/helpers";
 
 
 /**
@@ -40,6 +41,7 @@ logger.error("Error message:", error.message, "Errors:", Array.isArray(error.err
     ...(process.env.NODE_ENV === "development" ? { stack: error.stack } : {}),
   };
 
+  removeUnusedMulterImageFilesOnError(req)
   return res.status(error.statusCode).json(responsePayload);
 };
 

@@ -81,8 +81,9 @@ CREATE TABLE "product" (
 	"owner" uuid NOT NULL,
 	"price" real NOT NULL,
 	"stock" real NOT NULL,
-	"main_image" varchar(256) NOT NULL,
-	"sub_images" varchar(256)[],
+	"main_image_url" varchar(256),
+	"main_image_local_path" varchar(255),
+	"sub_images" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );

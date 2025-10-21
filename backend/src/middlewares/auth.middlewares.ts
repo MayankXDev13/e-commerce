@@ -4,6 +4,7 @@ import { ApiError } from "../utils/ApiError";
 import { asyncHandler } from "../utils/asyncHandler";
 import { Request, Response, NextFunction } from "express";
 import { db } from "../db/db";
+import logger from "../logger/winston.logger";
 
 interface DecodedToken {
   id: string;
@@ -23,7 +24,6 @@ type User = {
   updatedAt: Date;
 };
 
-
 declare global {
   namespace Express {
     interface Request {
@@ -37,8 +37,6 @@ export const verifyJWT = asyncHandler(
       const token =
         req.cookies?.accessToken ||
         req.header("Authorization")?.replace("Bearer ", "");
-  
-        
 
       if (!token) {
         throw new ApiError(401, "Unauthorized request");
@@ -118,8 +116,6 @@ export const getLoggedInUserOrIgnore = asyncHandler(
 
 export const verifyPermission = (roles: string[] = []) =>
   asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-
-    
     if (!req.user?.id) {
       throw new ApiError(401, "Unauthorized request");
     }

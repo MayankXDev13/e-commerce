@@ -1,16 +1,8 @@
 import multer from "multer";
-import fs from "fs/promises";
 
 const storage = multer.diskStorage({
-  destination: async function (req, file, cb) {
-    const uploadDir = "./public/images";
-    
-    try {
-      await fs.mkdir(uploadDir, { recursive: true });
-      cb(null, uploadDir);
-    } catch (error) {
-      cb(error as Error, uploadDir);
-    }
+  destination: function (req, file, cb) {
+    cb(null, "./public/images");
   },
 
   filename: function (req, file, cb) {
@@ -24,17 +16,17 @@ const storage = multer.diskStorage({
       .toLowerCase()
       .split(" ")
       .join("-")
-      .split(".")[0];
-    
+      ?.split(".")[0];
     cb(
       null,
       filenameWithoutExtension +
         Date.now() +
-        Math.ceil(Math.random() * 1e5) +
+        Math.ceil(Math.random() * 1e5) + // avoid rare name conflict
         fileExtension
     );
   },
 });
+
 
 export const upload = multer({
   storage,
