@@ -78,7 +78,7 @@ export const createProduct = asyncHandler(
       throw new ApiError(404, "Category does not exist");
     }
 
-    if (!req.files?.mainImage || !req.files.mainImage.length) {
+    if (!req.files.mainImage || !req.files.mainImage.length) {
       throw new ApiError(400, "Main image is required");
     }
 
